@@ -38,6 +38,7 @@ uint8_t dataCl[]="\r";
 uint8_t nums = 123;
 uint8_t numarray[4];
 
+uint8_t TxData[10240];
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -68,6 +69,8 @@ static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
+
+
 
 /* USER CODE END PFP */
 
@@ -121,8 +124,12 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
-  /* USER CODE BEGIN 2 */
 
+  /* USER CODE BEGIN 2 */
+  for(uint32_t i= 0; i<10240; i++)
+  {
+  	TxData[i] = i&(0xff);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -132,7 +139,11 @@ int main(void)
 
     /* USER CODE END WHILE */
 
+	  //HAL_UART_Transmit(&huart1, TxData, 10240,HAL_MAX_DELAY);
+	  //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+	  HAL_Delay(500);
 
+/*
 
 	  HAL_UART_Transmit(&huart1, data, 12, 1000);
 	  //HAL_Delay(1000);
@@ -143,6 +154,8 @@ int main(void)
 	  HAL_UART_Transmit(&huart1, numarray, 4, 100);
 	  HAL_UART_Transmit(&huart1, dataCl, 1, 1000);
 	  HAL_Delay(1000);
+*/
+
 
 /*
 	  g++;
