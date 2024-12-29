@@ -124,7 +124,6 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
-
   /* USER CODE BEGIN 2 */
   for(uint32_t i= 0; i<10240; i++)
   {
@@ -132,15 +131,15 @@ int main(void)
   }
   /* USER CODE END 2 */
 
-  /* Infinite loop *
+  /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
 
     /* USER CODE END WHILE */
 
-	  //HAL_UART_Transmit(&huart1, TxData, 10240,HAL_MAX_DELAY);
-	  //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+	  HAL_UART_Transmit(&huart1, TxData, 10240,HAL_MAX_DELAY);
+	  HAL_GPIO_TogglePin(GPIOC, LED_Pin);
 	  HAL_Delay(500);
 
 /*
@@ -317,13 +316,25 @@ static void MX_DMA_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : LED_Pin */
+  GPIO_InitStruct.Pin = LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
