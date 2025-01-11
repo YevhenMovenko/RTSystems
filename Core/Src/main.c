@@ -24,7 +24,7 @@
 #include <stdio.h>
 
 //#include "i2c_addrScaner.h"
-//#define I2C_REQUEST_WRITE 0x00 //I2C scanner
+#define I2C_REQUEST_WRITE 0x00 //I2C scanner
 
 #ifndef USE_FULL_LL_DRIVER
 #define USE_FULL_LL_DRIVER
@@ -39,37 +39,41 @@ char str[16];
 int8_t rx_buffer[16];
 
 //uint8_t data[]="Hello World\n";
-//uint8_t dataStartBlock1[] = "Block #1\n";
-//uint8_t dataStartBlock2[] = "Block #2\n";
+uint8_t dataStartBlock1[] = "Block #1\n";
+uint8_t dataStartBlock2[] = "Block #2\n";
 
-//uint8_t dataCl[]="\r";
+uint8_t dataCl[]="\r";
 uint8_t nums = 123;
 uint8_t numarray[4];
 
 uint8_t TxData[10240];
-//int isSent =1;
+int isSent =1;
 
 int countloop = 0;
 int coutinterrupt = 0;
 
 
-/*
+
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
-*/
+
 //++++ I2C scanner
 I2C_HandleTypeDef hi2c1;
 
-//char CDC_tx_buff[64];
-//char CDC_rx_buff[8];
-//uint8_t CDC_rx_flag = 0;
-//uint32_t I2C_speed[4] = { 100000, 200000, 300000, 400000 };
+char CDC_tx_buff[64];
+char CDC_rx_buff[8];
+uint8_t CDC_rx_flag = 0;
+uint32_t I2C_speed[4] = { 100000, 200000, 300000, 400000 };
 
-//uint8_t countLoop = 0;
+uint8_t countLoop = 0;
 
 //extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
-/*
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+	isSent =1;
+	//coutinterrupt++;
+}
 uint8_t I2C_Check(uint16_t addr)
 {
 
@@ -106,36 +110,30 @@ uint8_t I2C_Check(uint16_t addr)
     return 1;
 }
 
-*/
-/*
+
+
 uint8_t I2C_Roll_Speed(uint16_t addr)
 {
 	LL_RCC_ClocksTypeDef rcc_clocks; //
     uint8_t idx;
     uint32_t freq;
+    uint8_t loopOut = 0;
 
     LL_RCC_GetSystemClocksFreq(&rcc_clocks); //Return the frequencies of different on chip clocks;
                                              //System, AHB, APB1 and APB2 buses clocks.
                                              //Each time SYSCLK, HCLK, PCLK1 and/or PCLK2 clock changes,
                                              //this function must be called to update structure fields.
                                              //Otherwise, any configuration based on this function will be incorrect.
-    sprintf(CDC_tx_buff, "Scanning address: 0X%x\n", addr);
+    sprintf(CDC_tx_buff, "Scanning address: 0X%x\n\r", addr);
          if(isSent == 1){
     	// ++++++ Block 1 +++++++
-		  HAL_UART_Transmit_IT(&huart1, dataStartBlock1, 64);
-		  isSent = 0;
-	         while(!isSent){
-	         }
-		  HAL_UART_Transmit_IT(&huart1, dataCl, 1);
-		  isSent = 0;
-         }
-         while(!isSent){
-         }
 		  HAL_UART_Transmit_IT(&huart1, CDC_tx_buff, 64);
 		  isSent = 0;
 	         while(!isSent){
 	         }
 		  HAL_UART_Transmit_IT(&huart1, dataCl, 1);
+		  isSent = 0;
+         }
 
     for (idx = 0; idx < 4; idx++) {
         LL_mDelay(3);
@@ -144,14 +142,8 @@ uint8_t I2C_Roll_Speed(uint16_t addr)
         LL_I2C_Enable(I2C1);
 
 
-        if(addr == 127){
-        countLoop++;
-        addr = 0;
-
-        }
-
-        if (I2C_Check(addr)) {
-            sprintf(CDC_tx_buff, "Devise`s adores is: 0X%x\n", addr);
+        if (I2C_Check(addr)& !loopOut) {
+            sprintf(CDC_tx_buff, "Devise`s adores is: 0X%x\n\r", addr);
             //CDC_Transmit_FS(CDC_tx_buff, 7);
 
             if (isSent == 1) {
@@ -159,29 +151,30 @@ uint8_t I2C_Roll_Speed(uint16_t addr)
                 //CDC_Transmit_FS("SCAN...\n\r", 9);
         		HAL_UART_Transmit_IT(&huart1, CDC_tx_buff, 64);
         		isSent == 0;
-   	            while(!isSent){
-   	            }
-        		HAL_UART_Transmit_IT(&huart1, dataCl, 8);
-        		isSent == 0;
+        		 LL_mDelay(1000);
+   	            //while(!isSent){
+   	            //}
+        		//HAL_UART_Transmit_IT(&huart1, dataCl, 8);
+        		//isSent == 0;
                 }
-
+            loopOut++;
             LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13); // LED on : I2C slave found
         }
         else {
-            sprintf(CDC_tx_buff, "  ---  ");
+            //sprintf(CDC_tx_buff, "  ---  ");
             //CDC_Transmit_FS(CDC_tx_buff, 7);
 
             if (isSent == 1) {
         		LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
                 //CDC_Transmit_FS("SCAN...\n\r", 9);
-        		HAL_Delay(100);
+        		//HAL_Delay(100);
         		isSent == 0;
                 }
         }
     }
     return 0;
 }
-*/
+
 //+++++++++++
 
 
@@ -292,7 +285,7 @@ int main(void)
 
         }
 */
-        for (int i = 1; i < 128; i++) {
+        for (int i = 1; i < 256; i++) {
             LL_mDelay(100);
             I2C_Roll_Speed(i);
         }
@@ -510,6 +503,8 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
+
+
 
 #ifdef  USE_FULL_ASSERT
 /**
