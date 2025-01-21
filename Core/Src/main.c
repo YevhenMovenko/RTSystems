@@ -29,14 +29,20 @@
 
 //#define I2C_SCANER
 
+
+
 #ifdef I2C_SCANER
 #define I2C_REQUEST_WRITE 0x00 //I2C scanner
 #endif
 
 
+
 #ifndef USE_FULL_LL_DRIVER
 #define USE_FULL_LL_DRIVER
 #endif
+
+//#define SET_TIME_DATE
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -122,7 +128,10 @@ void printr(uint8_t reg) {
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
 
+UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -134,6 +143,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 
@@ -178,6 +188,7 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
 /*++++++++++++ DS3231 I2C communication +++++++++++++++*/
@@ -195,9 +206,9 @@ int main(void)
 
 #ifdef SET_TIME_DATE
 	//Set time.
-	DS3231_SetFullTime(23, 59, 50);
+	DS3231_SetFullTime(18, 29, 00);
 	//Set date.
-	DS3231_SetFullDate(10, 11, 2, 2020);
+	DS3231_SetFullDate(14, 01, 2, 2025);
 
 #endif
 	//Print all register values, for demonstration purpose
@@ -220,55 +231,8 @@ int main(void)
   {
 
     /* USER CODE END WHILE */
-LL_mDelay(1000);
 
-seconds = DS3231_GetSecond();
-
-sprintf(DS3231_get_Sec, "Seconds:  %d\n\r", seconds);
-
-  HAL_UART_Transmit_IT(&huart1, DS3231_get_Sec, 64);
-  isSent = 0;
-   while(!isSent){
-   }
-
-
-minutes = DS3231_GetMinute();
-
-sprintf(DS3231_get_Min, "Minutes:  %d\n\r", minutes);
-
-
-HAL_UART_Transmit_IT(&huart1, DS3231_get_Min, 64);
-isSent = 0;
-while(!isSent){
- }
-
-hours = DS3231_GetHour();
-
-sprintf(DS3231_get_Hour, "Hours:  %d\n\r", hours);
-
-
-HAL_UART_Transmit_IT(&huart1, DS3231_get_Hour, 64);
-isSent = 0;
-while(!isSent){
- }
-
-
-	/*+++++++++++ I2C scanner code ++++++++++++++++++*/
-#ifdef I2C_SCANER
-
-        LL_mDelay(1000);
-
-        for (int i = 1; i < 127; i++) {
-            LL_mDelay(100);
-            I2C_Roll_Speed(i);
-        }
-
-#endif
-    /*===============END I2C scanner code=========== */
-
-
-
-   /* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -347,6 +311,64 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  LL_TIM_InitTypeDef TIM_InitStruct = {0};
+  LL_TIM_OC_InitTypeDef TIM_OC_InitStruct = {0};
+
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* Peripheral clock enable */
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM3);
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  TIM_InitStruct.Prescaler = 0;
+  TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
+  TIM_InitStruct.Autoreload = 65535;
+  TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
+  LL_TIM_Init(TIM3, &TIM_InitStruct);
+  LL_TIM_DisableARRPreload(TIM3);
+  LL_TIM_OC_EnablePreload(TIM3, LL_TIM_CHANNEL_CH1);
+  TIM_OC_InitStruct.OCMode = LL_TIM_OCMODE_PWM1;
+  TIM_OC_InitStruct.OCState = LL_TIM_OCSTATE_DISABLE;
+  TIM_OC_InitStruct.OCNState = LL_TIM_OCSTATE_DISABLE;
+  TIM_OC_InitStruct.CompareValue = 0;
+  TIM_OC_InitStruct.OCPolarity = LL_TIM_OCPOLARITY_HIGH;
+  LL_TIM_OC_Init(TIM3, LL_TIM_CHANNEL_CH1, &TIM_OC_InitStruct);
+  LL_TIM_OC_DisableFast(TIM3, LL_TIM_CHANNEL_CH1);
+  LL_TIM_OC_EnablePreload(TIM3, LL_TIM_CHANNEL_CH2);
+  LL_TIM_OC_Init(TIM3, LL_TIM_CHANNEL_CH2, &TIM_OC_InitStruct);
+  LL_TIM_OC_DisableFast(TIM3, LL_TIM_CHANNEL_CH2);
+  LL_TIM_SetTriggerOutput(TIM3, LL_TIM_TRGO_RESET);
+  LL_TIM_DisableMasterSlaveMode(TIM3);
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOA);
+  /**TIM3 GPIO Configuration
+  PA6   ------> TIM3_CH1
+  PA7   ------> TIM3_CH2
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_6|LL_GPIO_PIN_7;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -392,9 +414,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
-  /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
 
@@ -447,108 +466,6 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-
-#ifdef I2C_SCANER
-uint8_t I2C_Check(uint16_t addr)
-{
-
-    uint8_t timeOut = 10;
-    LL_I2C_DisableBitPOS(I2C1); //The POS bit is used when the procedure for reception of 2 bytes
-    LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);//Prepare the generation of a ACKnowledge or Non ACKnowledge condition after the address receive match code
-                                                 //or next received byte.
-    LL_I2C_GenerateStartCondition(I2C1);//Generate a START or RESTART condition.
-    while (!LL_I2C_IsActiveFlag_SB(I2C1)) { //Indicate the status of Start Bit (master mode)
-        if (LL_SYSTICK_IsActiveCounterFlag()) { //This function checks if the Systick counter flag is active or not.
-        	                                    //It can be used in timeout function on application side
-            if (timeOut-- == 0) {
-                LL_I2C_GenerateStopCondition(I2C1); //Generate a STOP condition after the current byte transfer (master mode).
-                return 0;
-            }
-        }
-    }
-    LL_I2C_TransmitData8(I2C1, (addr) << 1 | I2C_REQUEST_WRITE); //Write in Transmit Data Register.
-                                                                 //I2Cx: I2C Instance.
-                                                                 //Data: Value between Min_Data=0x0 and Max_Data=0xFF
-    while (!LL_I2C_IsActiveFlag_ADDR(I2C1)) {   //Indicate the status of Address sent (master mode) or Address matched flag (slave mode).
-        if (LL_SYSTICK_IsActiveCounterFlag()) { //This function checks if the Systick counter flag is active or not.
-                                                //It can be used in timeout function on application side
-            if (timeOut-- == 0) {
-                LL_I2C_GenerateStopCondition(I2C1);//Generate a STOP condition after the current byte transfer (master mode).
-                return 0;
-            }
-        }
-    }
-    LL_I2C_ClearFlag_ADDR(I2C1);        //Clear Address Matched flag.
-                                        //Clearing this flag is done by a read access to the I2Cx_SR1 register followed by a read access to the
-                                        //I2Cx_SR2 register
-    LL_I2C_GenerateStopCondition(I2C1); //Generate a STOP condition after the current byte transfer (master mode).
-    return 1;
-}
-
-
-uint8_t I2C_Roll_Speed(uint16_t addr)
-{
-	LL_RCC_ClocksTypeDef rcc_clocks; //
-    uint8_t idx;
-    uint32_t freq;
-    uint8_t loopOut = 0;
-
-    LL_RCC_GetSystemClocksFreq(&rcc_clocks); //Return the frequencies of different on chip clocks;
-                                             //System, AHB, APB1 and APB2 buses clocks.
-                                             //Each time SYSCLK, HCLK, PCLK1 and/or PCLK2 clock changes,
-                                             //this function must be called to update structure fields.
-                                             //Otherwise, any configuration based on this function will be incorrect.
-    sprintf(CDC_tx_buff, "Scanning address: 0X%x\n\r", addr);
-         if(isSent == 1){
-		  HAL_UART_Transmit_IT(&huart1, CDC_tx_buff, 64);
-		  isSent = 0;
-	         while(!isSent){
-	         }
-		  HAL_UART_Transmit_IT(&huart1, dataCl, 1);
-		  isSent = 0;
-         }
-
-    for (idx = 0; idx < 4; idx++) {
-        LL_mDelay(3);
-        LL_I2C_Disable(I2C1);
-        LL_I2C_ConfigSpeed(I2C1, rcc_clocks.PCLK1_Frequency, I2C_speed[idx], LL_I2C_DUTYCYCLE_2);
-        LL_I2C_Enable(I2C1);
-
-
-        if (I2C_Check(addr)& !loopOut) {
-            sprintf(CDC_tx_buff, "Devise`s adores is: 0X%x\n\r", addr);
-            //CDC_Transmit_FS(CDC_tx_buff, 7);
-
-            if (isSent == 1) {
-        		LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
-                //CDC_Transmit_FS("SCAN...\n\r", 9);
-        		HAL_UART_Transmit_IT(&huart1, CDC_tx_buff, 64);
-        		isSent == 0;
-        		 LL_mDelay(1000);
-   	            //while(!isSent){
-   	            //}
-        		//HAL_UART_Transmit_IT(&huart1, dataCl, 8);
-        		//isSent == 0;
-                }
-            loopOut++;
-            LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13); // LED on : I2C slave found
-        }
-        else {
-            //sprintf(CDC_tx_buff, "  ---  ");
-            //CDC_Transmit_FS(CDC_tx_buff, 7);
-
-            if (isSent == 1) {
-        		LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
-                //CDC_Transmit_FS("SCAN...\n\r", 9);
-        		//HAL_Delay(100);
-        		isSent == 0;
-                }
-        }
-    }
-    return 0;
-}
-#endif
 
 #ifdef  USE_FULL_ASSERT
 /**
