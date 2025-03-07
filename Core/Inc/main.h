@@ -28,6 +28,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
+
 #include "stm32f1xx_ll_tim.h"
 #include "stm32f1xx_ll_bus.h"
 #include "stm32f1xx_ll_cortex.h"
@@ -96,6 +97,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED_Pin GPIO_PIN_13
 #define LED_GPIO_Port GPIOC
+#define VOICE_EMULATOR_Pin GPIO_PIN_15
+#define VOICE_EMULATOR_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

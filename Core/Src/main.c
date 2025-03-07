@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -81,7 +82,7 @@ char DS3231_get_Yar[64];
 uint8_t seconds;
 uint8_t minutes;
 uint8_t hours;
-
+uint8_t countAlarm1 = 0;
 /*==========================================*/
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
@@ -133,6 +134,10 @@ I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_tx;
 
+osThreadId defaultTaskHandle;
+osThreadId myTask_1Handle;
+osThreadId myTask_2Handle;
+osMutexId uart_newTextHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -144,6 +149,10 @@ static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM3_Init(void);
+void StartDefaultTask(void const * argument);
+void StartTask_1(void const * argument);
+void StartTask_2(void const * argument);
+
 /* USER CODE BEGIN PFP */
 
 
@@ -152,6 +161,9 @@ static void MX_TIM3_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+typedef  uint32_t TaskProfiler;
+
+TaskProfiler StartTask_1_Profiler, StartTask_2_Profiler, Default_Tread_Profiler;
 
 /* USER CODE END 0 */
 
@@ -221,9 +233,60 @@ int main(void)
 #endif
   __enable_irq();
   /*============ END DS3231 I2C communication=============*/
+  /*++++++++++++ DS3231 ALARMs setings +++++++++++++++*/
+   DS3231_EnableAlarm2(DS3231_ENABLED);
+   DS3231_ClearAlarm2Flag();
+   DS3231_SetAlarm2Minute(14);
 
-
+   /*
+   for(uint8_t min=0; min<60;min++){
+   DS3231_SetAlarm2Minute(min);
+   }
+   */
   /* USER CODE END 2 */
+
+  /* Create the mutex(es) */
+  /* definition and creation of uart_newText */
+  osMutexDef(uart_newText);
+  uart_newTextHandle = osMutexCreate(osMutex(uart_newText));
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of myTask_1 */
+  osThreadDef(myTask_1, StartTask_1, osPriorityNormal, 0, 128);
+  myTask_1Handle = osThreadCreate(osThread(myTask_1), NULL);
+
+  /* definition and creation of myTask_2 */
+  osThreadDef(myTask_2, StartTask_2, osPriorityNormal, 0, 128);
+  myTask_2Handle = osThreadCreate(osThread(myTask_2), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -412,7 +475,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
 
 }
@@ -437,12 +500,22 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(VOICE_EMULATOR_GPIO_Port, VOICE_EMULATOR_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : LED_Pin */
   GPIO_InitStruct.Pin = LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : VOICE_EMULATOR_Pin */
+  GPIO_InitStruct.Pin = VOICE_EMULATOR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(VOICE_EMULATOR_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -451,6 +524,98 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+
+seconds = DS3231_GetSecond();
+
+minutes = DS3231_GetMinute();
+
+hours = DS3231_GetHour();
+
+
+sprintf(DS3231_get_Hour, "time is: %d:%d:%d\n\r", hours, minutes, seconds);
+HAL_UART_Transmit_IT(&huart1, DS3231_get_Hour, 64);
+isSent = 0;
+
+    osDelay(5000);
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartTask_1 */
+/**
+* @brief Function implementing the myTask_1 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask_1 */
+void StartTask_1(void const * argument)
+{
+  /* USER CODE BEGIN StartTask_1 */
+  /* Infinite loop */
+  for(;;)
+  {
+	StartTask_1_Profiler++;
+if (DS3231_IsAlarm2Triggered()){
+	   countAlarm1++;
+}
+    osDelay(500);
+  }
+  /* USER CODE END StartTask_1 */
+}
+
+/* USER CODE BEGIN Header_StartTask_2 */
+/**
+* @brief Function implementing the myTask_2 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask_2 */
+void StartTask_2(void const * argument)
+{
+  /* USER CODE BEGIN StartTask_2 */
+  /* Infinite loop */
+  for(;;)
+  {
+	StartTask_2_Profiler++;
+    //osDelay(1);
+  }
+  /* USER CODE END StartTask_2 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM2 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM2) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
