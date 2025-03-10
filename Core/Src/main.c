@@ -23,7 +23,12 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 
+//#include "i2c_addrScaner.h"
+#define I2C_REQUEST_WRITE 0x00 //I2C scanner
 
+#ifndef USE_FULL_LL_DRIVER
+#define USE_FULL_LL_DRIVER
+#endif
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,12 +38,146 @@ uint16_t g =0;
 char str[16];
 int8_t rx_buffer[16];
 
-uint8_t data[]="Hello World\n";
+//uint8_t data[]="Hello World\n";
+uint8_t dataStartBlock1[] = "Block #1\n";
+uint8_t dataStartBlock2[] = "Block #2\n";
+
 uint8_t dataCl[]="\r";
 uint8_t nums = 123;
 uint8_t numarray[4];
 
 uint8_t TxData[10240];
+int isSent =1;
+
+int countloop = 0;
+int coutinterrupt = 0;
+
+
+
+UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart1_tx;
+
+//++++ I2C scanner
+I2C_HandleTypeDef hi2c1;
+
+char CDC_tx_buff[64];
+char CDC_rx_buff[8];
+uint8_t CDC_rx_flag = 0;
+uint32_t I2C_speed[4] = { 100000, 200000, 300000, 400000 };
+
+uint8_t countLoop = 0;
+
+//extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+	isSent =1;
+	//coutinterrupt++;
+}
+uint8_t I2C_Check(uint16_t addr)
+{
+
+    uint8_t timeOut = 10;
+    LL_I2C_DisableBitPOS(I2C1); //The POS bit is used when the procedure for reception of 2 bytes
+    LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);//Prepare the generation of a ACKnowledge or Non ACKnowledge condition after the address receive match code
+                                                 //or next received byte.
+    LL_I2C_GenerateStartCondition(I2C1);//Generate a START or RESTART condition.
+    while (!LL_I2C_IsActiveFlag_SB(I2C1)) { //Indicate the status of Start Bit (master mode)
+        if (LL_SYSTICK_IsActiveCounterFlag()) { //This function checks if the Systick counter flag is active or not.
+        	                                    //It can be used in timeout function on application side
+            if (timeOut-- == 0) {
+                LL_I2C_GenerateStopCondition(I2C1); //Generate a STOP condition after the current byte transfer (master mode).
+                return 0;
+            }
+        }
+    }
+    LL_I2C_TransmitData8(I2C1, (addr) << 1 | I2C_REQUEST_WRITE); //Write in Transmit Data Register.
+                                                                 //I2Cx: I2C Instance.
+                                                                 //Data: Value between Min_Data=0x0 and Max_Data=0xFF
+    while (!LL_I2C_IsActiveFlag_ADDR(I2C1)) {   //Indicate the status of Address sent (master mode) or Address matched flag (slave mode).
+        if (LL_SYSTICK_IsActiveCounterFlag()) { //This function checks if the Systick counter flag is active or not.
+                                                //It can be used in timeout function on application side
+            if (timeOut-- == 0) {
+                LL_I2C_GenerateStopCondition(I2C1);//Generate a STOP condition after the current byte transfer (master mode).
+                return 0;
+            }
+        }
+    }
+    LL_I2C_ClearFlag_ADDR(I2C1);        //Clear Address Matched flag.
+                                        //Clearing this flag is done by a read access to the I2Cx_SR1 register followed by a read access to the
+                                        //I2Cx_SR2 register
+    LL_I2C_GenerateStopCondition(I2C1); //Generate a STOP condition after the current byte transfer (master mode).
+    return 1;
+}
+
+
+
+uint8_t I2C_Roll_Speed(uint16_t addr)
+{
+	LL_RCC_ClocksTypeDef rcc_clocks; //
+    uint8_t idx;
+    uint32_t freq;
+    uint8_t loopOut = 0;
+
+    LL_RCC_GetSystemClocksFreq(&rcc_clocks); //Return the frequencies of different on chip clocks;
+                                             //System, AHB, APB1 and APB2 buses clocks.
+                                             //Each time SYSCLK, HCLK, PCLK1 and/or PCLK2 clock changes,
+                                             //this function must be called to update structure fields.
+                                             //Otherwise, any configuration based on this function will be incorrect.
+    sprintf(CDC_tx_buff, "Scanning address: 0X%x\n\r", addr);
+         if(isSent == 1){
+    	// ++++++ Block 1 +++++++
+		  HAL_UART_Transmit_IT(&huart1, CDC_tx_buff, 64);
+		  isSent = 0;
+	         while(!isSent){
+	         }
+		  HAL_UART_Transmit_IT(&huart1, dataCl, 1);
+		  isSent = 0;
+         }
+
+    for (idx = 0; idx < 4; idx++) {
+        LL_mDelay(3);
+        LL_I2C_Disable(I2C1);
+        LL_I2C_ConfigSpeed(I2C1, rcc_clocks.PCLK1_Frequency, I2C_speed[idx], LL_I2C_DUTYCYCLE_2);
+        LL_I2C_Enable(I2C1);
+
+
+        if (I2C_Check(addr)& !loopOut) {
+            sprintf(CDC_tx_buff, "Devise`s adores is: 0X%x\n\r", addr);
+            //CDC_Transmit_FS(CDC_tx_buff, 7);
+
+            if (isSent == 1) {
+        		LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
+                //CDC_Transmit_FS("SCAN...\n\r", 9);
+        		HAL_UART_Transmit_IT(&huart1, CDC_tx_buff, 64);
+        		isSent == 0;
+        		 LL_mDelay(1000);
+   	            //while(!isSent){
+   	            //}
+        		//HAL_UART_Transmit_IT(&huart1, dataCl, 8);
+        		//isSent == 0;
+                }
+            loopOut++;
+            LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13); // LED on : I2C slave found
+        }
+        else {
+            //sprintf(CDC_tx_buff, "  ---  ");
+            //CDC_Transmit_FS(CDC_tx_buff, 7);
+
+            if (isSent == 1) {
+        		LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
+                //CDC_Transmit_FS("SCAN...\n\r", 9);
+        		//HAL_Delay(100);
+        		isSent == 0;
+                }
+        }
+    }
+    return 0;
+}
+
+//+++++++++++
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -52,11 +191,7 @@ uint8_t TxData[10240];
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
 
-UART_HandleTypeDef huart1;
-DMA_HandleTypeDef hdma_usart1_rx;
-DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -76,19 +211,6 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void send(char chr){
-	while(!(USART1->SR & USART_SR_TC));
-	USART1->DR=chr;
-};
-
-void send_str(char *str){
-int i = 0;
-while (str[i])
-	send(str[i++]);
-
-}
-
-
 
 /* USER CODE END 0 */
 
@@ -117,6 +239,7 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -136,11 +259,55 @@ int main(void)
   while (1)
   {
 
-    /* USER CODE END WHILE */
+    /* USER CODE END WHILE */\
 
-	  HAL_UART_Transmit(&huart1, TxData, 10240,HAL_MAX_DELAY);
+	//+++++++++++ I2C scanner code +++++++++
+
+    //CDC_Transmit_FS("\n\rDirty STM32 I2C Scanner V0.01\r\ntype 's' to scan\n\r", 51);
+    //HAL_UART_Transmit(CDC_tx_buff, addr, 7);
+
+        LL_mDelay(1000);
+        //CDC_Transmit_FS("\n\rDirty STM32 I2C Scanner V0.01\r\ntype 's' to scan\n\r", 51);
+/*
+        if (isSent == 1) {
+			//LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
+            //CDC_Transmit_FS("SCAN...\n\r", 9);
+			HAL_UART_Transmit_IT(&huart1, data, 1024);
+			HAL_UART_Transmit_IT(&huart1, dataCl, 1024);
+			HAL_Delay(100);
+			isSent == 0;
+
+            //CDC_Transmit_FS("     100Khz 200Khz 300Khz 400Khz", 35);
+            for (int i = 1; i < 128; i++) {
+                LL_mDelay(100);
+                I2C_Roll_Speed(i);
+            }
+
+        }
+*/
+        for (int i = 1; i < 256; i++) {
+            LL_mDelay(100);
+            I2C_Roll_Speed(i);
+        }
+
+//=======================================
+
+//	  HAL_UART_Transmit(&huart1, TxData, 10240,HAL_MAX_DELAY);
+
+
+	  //+++++++++ UART study part
+
+/*
+	  if(isSent == 1){
+		  HAL_UART_Transmit_IT(&huart1, TxData, 10240);
+          isSent =0;
+	  }
+
 	  HAL_GPIO_TogglePin(GPIOC, LED_Pin);
 	  HAL_Delay(500);
+	  countloop++;
+*/
+//======================================
 
 /*
 
@@ -153,33 +320,11 @@ int main(void)
 	  HAL_UART_Transmit(&huart1, numarray, 4, 100);
 	  HAL_UART_Transmit(&huart1, dataCl, 1, 1000);
 	  HAL_Delay(1000);
+
+
 */
 
-
-/*
-	  g++;
-	  sprintf(str, "g=%05i;", g);
-      HAL_Delay(1000);
-      send_str(str);
-      send_str("\r\n");
-
-      rx_buffer[0] = 'D';
-      rx_buffer[1] = 'M';
-      rx_buffer[2] = 'A';
-      rx_buffer[3] = '\n';
-
-      HAL_UART_Transmit_DMA(&huart1, rx_buffer, 4);
-
-      HAL_Delay(100);
-
-      rx_buffer[0] = 'O';
-      rx_buffer[1] = 'k';
-      rx_buffer[2] = 0x0A;
-      HAL_UART_Transmit_IT(&huart1, rx_buffer, 3);
-      HAL_Delay(100);
-*/
-
-    /* USER CODE BEGIN 3 */
+   /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -358,6 +503,8 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
+
+
 
 #ifdef  USE_FULL_ASSERT
 /**

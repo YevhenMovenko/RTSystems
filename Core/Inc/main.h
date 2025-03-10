@@ -22,8 +22,13 @@
 #ifndef __MAIN_H
 #define __MAIN_H
 
+
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifndef USE_FULL_LL_DRIVER
+#define USE_FULL_LL_DRIVER
 #endif
 
 /* Includes ------------------------------------------------------------------*/
@@ -32,10 +37,34 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+
+//+++++I2C scanner
+
+
+#include "stm32f1xx_hal.h"
+#include "stm32f1xx_ll_i2c.h"
+#include "stm32f1xx_ll_rcc.h"
+#include "stm32f1xx_ll_bus.h"
+#include "stm32f1xx_ll_system.h"
+#include "stm32f1xx_ll_exti.h"
+#include "stm32f1xx_ll_cortex.h"
+#include "stm32f1xx_ll_utils.h"
+#include "stm32f1xx_ll_pwr.h"
+#include "stm32f1xx_ll_dma.h"
+#include "stm32f1xx.h"
+#include "stm32f1xx_ll_gpio.h"
+//stm32f1xx_ll_rcc.h
+#include "stm32f1xx_ll_utils.h"
+
+
+//#include "i2c_addrScaner.h"
+
+//==================
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+
 
 /* USER CODE END ET */
 
@@ -53,6 +82,8 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+
+
 
 /* USER CODE END EFP */
 
