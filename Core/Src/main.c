@@ -91,6 +91,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
 uint8_t I2C_Check(uint16_t addr);
 uint8_t I2C_Roll_Speed(uint16_t addr);
 
+
 //+++++++++++
 void printr(uint8_t reg) {
 	sprintf(I2C_tx_buff_Rg, "Reg 0x%02x ", reg);
@@ -548,6 +549,7 @@ hours = DS3231_GetHour();
 
 sprintf(DS3231_get_Hour, "time is: %d:%d:%d\n\r", hours, minutes, seconds);
 HAL_UART_Transmit_IT(&huart1, DS3231_get_Hour, 64);
+
 isSent = 0;
 
     osDelay(5000);
